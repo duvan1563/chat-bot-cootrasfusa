@@ -59,6 +59,19 @@ export default function ChatInterface() {
         for (const call of functionCalls) {
           if (call.name === 'bookTicket') {
             const args = call.args as any;
+            
+            // Safety check: Don't show payment if model used placeholders
+            const isPlaceholder = (val: string) => 
+              val.includes('[') || val.includes(']') || 
+              val.toLowerCase().includes('nombre') || 
+              val.toLowerCase().includes('documento') ||
+              val.toLowerCase().includes('id');
+
+            if (isPlaceholder(args.passengerName) || isPlaceholder(args.passengerId)) {
+              console.warn("Model attempted to book with placeholder data:", args);
+              continue; 
+            }
+
             const newBooking: Booking = {
               userUid: auth.currentUser?.uid || 'anonymous',
               origin: args.origin,
