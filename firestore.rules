@@ -1,0 +1,86 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Fields:
+    //   - uid: string (required)
+    //   - email: string (required, email format)
+    //   - role: string (required, 'admin' or 'user')
+    //
+    // Collection: bookings
+    // Fields:
+    //   - userUid: string (required)
+    //   - origin: string (required)
+    //   - destination: string (required)
+    //   - date: string (required)
+    //   - time: string (required)
+    //   - status: string (required, 'pending' or 'paid')
+    //   - amount: number (required)
+    //   - passengers: int (required)
+    //   - createdAt: timestamp (required)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         (request.auth.token.email == "dianalore3@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasOnly(['uid', 'email', 'role']) &&
+             data.uid is string &&
+             data.email is string && isValidEmail(data.email) &&
+             data.role in ['admin', 'user'];
+    }
+
+    function isValidBooking(data) {
+      return data.keys().hasAll(['userUid', 'origin', 'destination', 'date', 'time', 'status', 'amount', 'passengers', 'createdAt']) &&
+             data.userUid is string &&
+             data.origin is string &&
+             data.destination is string &&
+             data.date is string &&
+             data.time is string &&
+             data.status in ['pending', 'paid'] &&
+             data.amount is number &&
+             data.passengers is int &&
+             data.createdAt is timestamp;
+    }
+
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
+      allow create: if isAuthenticated() && isValidUser(request.resource.data) && 
+                    (isOwner(userId) && request.resource.data.role == 'user' || isAdmin());
+      allow update: if isAuthenticated() && isValidUser(request.resource.data) && 
+                    (isOwner(userId) && request.resource.data.role == resource.data.role || isAdmin());
+    }
+
+    match /bookings/{bookingId} {
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userUid || isAdmin());
+      allow create: if isAuthenticated() && isValidBooking(request.resource.data) && 
+                    (request.auth.uid == request.resource.data.userUid || isAdmin());
+      allow update: if isAuthenticated() && isValidBooking(request.resource.data) && 
+                    (request.auth.uid == resource.data.userUid || isAdmin());
+      allow delete: if isAdmin();
+    }
+  }
+}

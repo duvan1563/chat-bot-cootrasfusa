@@ -1,0 +1,5 @@
+{
+  "name": "Cotransfusa WhatsApp Chatbot",
+  "description": "A WhatsApp-style chatbot for Cotransfusa transportation company to book and pay for tickets between Bogotá, Girardot, Melgar, Fusa, and Ibagué.",
+  "requestFramePermissions": []
+}
